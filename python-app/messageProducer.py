@@ -1,21 +1,25 @@
-# References:
-## Example of schema validation: https://github.com/confluentinc/schema-registry/blob/master/core/src/test/java/io/confluent/kafka/schemaregistry/avro/AvroCompatibilityTest.java
-## Avro producer: https://github.com/confluentinc/confluent-kafka-python
-## Test compatibility: https://docs.confluent.io/platform/current/schema-registry/develop/using.html#test-compatibility-of-a-schema-with-the-latest-schema-under-subject-kafka-value
-
 from confluent_kafka import avro
 from confluent_kafka.avro import AvroProducer
 from modules.dataGenerator import DataGenerator
 from confluent_kafka.admin import AdminClient
 from modules.kafkaUtils import KafkaUtils
+from modules.schemaRegistryUtils import SchemaRegistryUtils
 from inspect import getmembers, isfunction
 import argparse
 import json
+import time
 
 #################################################
 # Define and parse args
 #################################################
 parser = argparse.ArgumentParser()
+
+parser.add_argument(
+    "--compatibility_type",
+    type=str,
+    required=True,
+    choices=["BACKWARD", "BACKWARD_TRANSITIVE", "FORWARD", "FORWARD_TRANSITIVE", "FULL", "FULL_TRANSITIVE", "NONE"] 
+)
 
 parser.add_argument(
     "--schema_name", #param name
@@ -50,6 +54,8 @@ topic_config = {
     "file.delete.delay.ms": "86400000",
     "confluent.value.schema.validation": True
 }
+schema_registry_url = "http://schema-registry:8081"
+subject_name = "{topic_name}-value".format(topic_name = topic_name)
 qty_messages = args.qty_messages
 
 # Instantiate Kafka client admin
@@ -63,11 +69,16 @@ kafka_client = AdminClient(
 # Instantiate KafkaUtils
 kafka_utils = KafkaUtils(kafka_client)
 
-if not kafka_utils.topic_exists(topic_name):
-    kafka_utils.create_topic(topic_name, 1, 1, topic_config)
-else:
-    print("Topic '{}' already exists.".format(topic_name))
+# Delete topic if it exists (try 3 times if it is not deleted for the first time)
+num_tries = 0
+while kafka_utils.topic_exists(topic_name) and num_tries <= 3:
+    kafka_utils.delete_topic(topic_name)
+    num_tries = num_tries + 1
 
+print("Number of tries to delete the topic: {}".format(num_tries))
+
+# Create topic
+kafka_utils.create_topic(topic_name, 1, 1, topic_config)
 
 #################################################
 # Generate data
@@ -80,8 +91,9 @@ def delivery_report(err, msg):
         print("Message delivered to {topic} [{partition}]".format(topic=msg.topic(), partition=msg.partition()))
 
 data_gen = DataGenerator()
+sr_utils = SchemaRegistryUtils(schema_registry_url)
 
-for schema_name in args.schema_name:
+for schema_num, schema_name in enumerate(args.schema_name):
 
     print("###################################")
     print("Generating messages for schema '{schema_name}'.".format(schema_name=schema_name))
@@ -95,9 +107,15 @@ for schema_name in args.schema_name:
         }, default_value_schema=avro.loads(json.dumps(data_gen.avro_schema(schema_name)["schema"])))
 
     # Generate messages
-    for _ in range(qty_messages):
+    for msg_num in range(qty_messages):
         avroProducer.produce(topic=topic_name, value=data_gen.avro_schema(schema_name)["value"])
         avroProducer.flush()
+        if schema_num == 0 and msg_num == 0:
+            # Set schema compatibility
+            sr_utils.set_subject_compatibility(subject_name, args.compatibility_type)
+            
+
+        
  
 
 
