@@ -1,7 +1,7 @@
 # kafka-schema-registry
 Project containing Confluent Docker containers, Python Docker container, a python application to test schema compatibility according to Schema Registry compatibility modes.
 
-# Setup and run
+# Setup Docker containers
 
 1 - Clone the project.
 ```
@@ -21,13 +21,15 @@ The output should resemble the following image.
 
 If some service is not started, you can run the command `docker-compose up -d` and check again.
 
-4 - Build the Python image which will be used to run the application.
+# Run avro schema compatibility test application
+
+1 - Build the Python image which will be used to run the application.
 ```
 cd kafka-schema-registry
 docker build -t python:3.6 -f ./docker-python/Dockerfile .
 ```
 
-5 - Run the application to test the schemas. 
+2 - Run the application to test the schemas. 
 ```
 docker run -it --net=docker-confluent_default  python:3.6 python /python-app/avroSchemaCompatibilityTest.py --topic_name test_compatibility --compatibility_type_list BACKWARD FORWARD
 ```
@@ -121,7 +123,44 @@ Running 'FORWARD' schema check.
     }
 ]
 ```
-# Stop containers
+# Run producer application
+
+In this project you can find an application to generate messages using one of the schemas predefined. To run the application, follow these steps:
+```
+docker run -it --net=docker-confluent_default  python:3.6 python /python-app/messageProducer.py --topic_name test_events --schema_name avro_schema1 avro_schema2 --compatibility_type FORWARD --qty_messages 5
+```
+Parameters:
+
+`--topic_name`: name of the topic where the messages will be created. If this topic exists it will be deleted and recreated to ensure it is clean.
+
+`--schema_name`: a list of schema names based on the functions under dataGenerator module with the predefined schemas.
+
+`--compatibility_type`: the compatibility mode that will be used to register the schemas. Possible values: BACKWARD, BACKWARD_TRANSITIVE, FORWARD, FORWARD_TRANSITIVE, FULL, FULL_TRANSITIVE, NONE
+
+`--qty_messages`: number of messages to be generated for each schema.
+
+Output example:
+```
+Topic 'test_events' deleted.
+Topic 'test_events' created.
+###################################
+Generating messages for schema 'avro_schema1'.
+###################################
+Message delivered to test_events [0]
+Message delivered to test_events [0]
+Message delivered to test_events [0]
+Message delivered to test_events [0]
+Message delivered to test_events [0]
+###################################
+Generating messages for schema 'avro_schema2'.
+###################################
+Message delivered to test_events [0]
+Message delivered to test_events [0]
+Message delivered to test_events [0]
+Message delivered to test_events [0]
+Message delivered to test_events [0]
+```
+# Stop Docker containers
 
 1 - To stop Confluent docker containers:
 ```
