@@ -1,4 +1,5 @@
 from confluent_kafka.admin import NewTopic
+import time
 
 class KafkaUtils:
 
@@ -52,3 +53,5 @@ class KafkaUtils:
                 print("Topic '{}' deleted.".format(topic))
             except Exception as e:
                 print("Failed to delete the topic '{topic_name}': {error}".format(topic_name=topic, error=e))
+
+        time.sleep(30)
