@@ -1,6 +1,3 @@
-# References: 
-#   Test suite: https://github.com/confluentinc/schema-registry/blob/master/core/src/test/java/io/confluent/kafka/schemaregistry/avro/AvroCompatibilityTest.java
-
 from confluent_kafka import avro
 from modules.dataGenerator import DataGenerator
 from modules.kafkaUtils import KafkaUtils
@@ -15,15 +12,19 @@ import argparse
 # Define and parse args
 #################################################
 parser = argparse.ArgumentParser()
+
 parser.add_argument(
     "--compatibility_type_list", #param name
     nargs="*", #number of items in list
-    type=str #type
+    type=str, #type
+    required=True,
+    choices=["BACKWARD", "BACKWARD_TRANSITIVE", "FORWARD", "FORWARD_TRANSITIVE", "FULL", "FULL_TRANSITIVE", "NONE"] 
 )
 
 parser.add_argument(
-    "--topic_name", #param name
-    type=str #type
+    "--topic_name",
+    type=str,
+    required=True
 )
 
 args = parser.parse_args()
@@ -32,7 +33,7 @@ args = parser.parse_args()
 # Variables
 #################################################
 bootstrap_servers = "broker:29092"
-topic_name = args.topic_name #"test_compatibility"
+topic_name = args.topic_name
 topic_config = {
     "cleanup.policy": "delete",
     "delete.retention.ms": "86400000",
